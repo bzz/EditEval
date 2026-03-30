@@ -9,10 +9,15 @@ import itertools
 from src.preprocessing import tokenize_text, normalize_text
 from typing import List, Optional, Dict, Union, Tuple
 from collections import defaultdict
-from datasets import Metric, load_metric
+try:
+    from datasets import Metric, load_metric
+except ImportError:
+    from evaluate import load as load_metric
+
+    class Metric:  # fallback for newer datasets versions
+        pass
 from src.utils import HUGGINGFACE_METRICS, CUSTOM_METRICS
 import re
-from transformers import AutoTokenizer
 from src.metrics.custom_metrics import CustomMetric
 
 
@@ -54,7 +59,7 @@ class Evaluator:
         return True
 
     @classmethod
-    def normalize_refs(cls, text: str, targets: List[str], tokenizer: AutoTokenizer, dataset: str, field: str):
+    def normalize_refs(cls, text: str, targets: List[str], tokenizer, dataset: str, field: str):
         """Text normalization before evaluation"""
         assert field in {"input", "prediction", "reference"}
         if dataset == "fruit" and field in {"prediction", "reference"}:  # remove context indices
@@ -90,6 +95,8 @@ class Evaluator:
         if dataset_name is not None and (dataset_name == "fruit" or dataset_name == "wafer_insert"):
             # /checkpoint/schick/peer/models/peer_edit_infilling_plans/checkpoint-20000
             # t5-small
+            from transformers import AutoTokenizer
+
             tokenizer = AutoTokenizer.from_pretrained("t5-small")
             normalize_func = lambda text, refs, field: cls.normalize_refs(
                 text=text, targets=refs, tokenizer=tokenizer, dataset=dataset_name, field=field
