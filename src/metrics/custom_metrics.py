@@ -8,7 +8,10 @@
 import abc
 from typing import List, Tuple, Optional
 from src.diff_utils import source_target_to_diffs
-from datasets import load_metric
+try:
+    from datasets import load_metric
+except ImportError:
+    from evaluate import load as load_metric
 
 
 class CustomMetric(abc.ABC):

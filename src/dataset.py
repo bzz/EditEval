@@ -9,30 +9,44 @@ from datasets import DatasetDict
 from typing import Callable, List, Dict, Union, Optional, Tuple, Any
 from src.evaluator import Evaluator
 import os
-from src.processors import huggingface_processors, wnc, fruit, wafer_insert
+import importlib
 from src.utils import SPLITS, transpose_dict, print_metric_report
 from functools import partial
 
 PROCESSORS = {
-    "asset": huggingface_processors.ASSETProcessor,
-    "fruit": fruit.FRUITProcessor,
-    "jfleg": huggingface_processors.JFLEGProcessor,
-    "iterater": huggingface_processors.ITERProcessor,
-    "iterater_clarity": partial(huggingface_processors.ITERProcessor, task_type="clarity"),
-    "iterater_coherence": partial(huggingface_processors.ITERProcessor, task_type="coherence"),
-    "iterater_fluency": partial(huggingface_processors.ITERProcessor, task_type="fluency"),
-    "iterater_style": partial(huggingface_processors.ITERProcessor, task_type="style"),
-    "stsb_multi_mt": huggingface_processors.STSBProcessor,
-    "turk": huggingface_processors.TURKProcessor,
-    "wnc": wnc.WNCProcessor,
-    "wafer_insert": wafer_insert.WAFERInsertProcessor,
+    "asset": "src.processors.huggingface_processors:ASSETProcessor",
+    "fruit": "src.processors.fruit:FRUITProcessor",
+    "jfleg": "src.processors.huggingface_processors:JFLEGProcessor",
+    "iterater": "src.processors.huggingface_processors:ITERProcessor",
+    "iterater_clarity": "src.processors.huggingface_processors:ITERProcessor",
+    "iterater_coherence": "src.processors.huggingface_processors:ITERProcessor",
+    "iterater_fluency": "src.processors.huggingface_processors:ITERProcessor",
+    "iterater_style": "src.processors.huggingface_processors:ITERProcessor",
+    "stsb_multi_mt": "src.processors.huggingface_processors:STSBProcessor",
+    "turk": "src.processors.huggingface_processors:TURKProcessor",
+    "wnc": "src.processors.wnc:WNCProcessor",
+    "wafer_insert": "src.processors.wafer_insert:WAFERInsertProcessor",
+}
+
+
+ITER_TASK_TYPES = {
+    "iterater_clarity": "clarity",
+    "iterater_coherence": "coherence",
+    "iterater_fluency": "fluency",
+    "iterater_style": "style",
 }
 
 
 def instantiate_processor(name, raw_path):
     if name not in PROCESSORS:
         raise ValueError(f"{name} not in available processors.")
-    return PROCESSORS[name](raw_path)
+
+    module_name, class_name = PROCESSORS[name].split(":")
+    processor_cls = getattr(importlib.import_module(module_name), class_name)
+
+    if name in ITER_TASK_TYPES:
+        return processor_cls(raw_path, task_type=ITER_TASK_TYPES[name])
+    return processor_cls(raw_path)
 
 
 class EditDataset:
