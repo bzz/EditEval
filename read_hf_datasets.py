@@ -1,8 +1,31 @@
 #!/usr/bin/env python3
-"""Read EditEval datasets from HuggingFace Hub with an optional --limit flag."""
+"""Read EditEval datasets from HuggingFace Hub with an optional --limit flag.
+
+Each sub-dataset is stored in its own subdirectory and can be loaded
+independently via:
+
+    load_dataset("bzz2/EditEval", data_dir="jfleg")
+
+Available datasets:
+    jfleg, asset, turk, iterater, iterater_fluency, iterater_clarity,
+    iterater_coherence, stsb_multi_mt, wnc, wafer_insert, fruit
+"""
 
 import argparse
-import json
+
+ALL_DATASETS = [
+    "jfleg",
+    "asset",
+    "turk",
+    "iterater",
+    "iterater_fluency",
+    "iterater_clarity",
+    "iterater_coherence",
+    "stsb_multi_mt",
+    "wnc",
+    "wafer_insert",
+    "fruit",
+]
 
 
 def main():
@@ -22,41 +45,29 @@ def main():
     )
     args = parser.parse_args()
 
-    from huggingface_hub import HfApi
+    from datasets import load_dataset
 
-    api = HfApi()
-    files = api.list_repo_files(repo_id=args.repo_id, repo_type="dataset")
-    jsonl_files = sorted([f for f in files if f.endswith(".jsonl")])
+    dataset_names = args.datasets if args.datasets else ALL_DATASETS
+    print(f"Loading {len(dataset_names)} datasets from {args.repo_id}:\n")
 
-    if args.datasets:
-        jsonl_files = [f for f in jsonl_files if any(d in f for d in args.datasets)]
+    for name in dataset_names:
+        ds = load_dataset(args.repo_id, data_dir=name, split="train")
+        total = len(ds)
 
-    print(f"Found {len(jsonl_files)} dataset files in {args.repo_id}:\n")
-
-    for jsonl_file in jsonl_files:
-        dataset_name = jsonl_file.replace("_input.jsonl", "")
         print(f"{'=' * 60}")
-        print(f"Dataset: {dataset_name}")
+        print(f"Dataset: {name}  ({total} examples)")
         print(f"{'=' * 60}")
 
-        # Stream the file and read only --limit lines
-        path = api.hf_hub_download(repo_id=args.repo_id, filename=jsonl_file, repo_type="dataset")
-        with open(path, "r") as f:
-            for i, line in enumerate(f):
-                if i >= args.limit:
-                    break
-                record = json.loads(line)
-                print(f"\n--- Sample {i + 1} ---")
-                print(f"  id:        {record.get('id', 'N/A')}")
-                print(f"  task_type: {record.get('task_type', 'N/A')}")
-                input_text = record.get("input", "")
-                if len(input_text) > 200:
-                    input_text = input_text[:200] + "..."
-                print(f"  input:     {input_text}")
+        for i in range(min(args.limit, total)):
+            sample = ds[i]
+            print(f"\n--- Sample {i + 1} ---")
+            print(f"  id:        {sample['id']}")
+            print(f"  task_type: {sample['task_type']}")
+            input_text = sample["input"]
+            if len(input_text) > 200:
+                input_text = input_text[:200] + "..."
+            print(f"  input:     {input_text}")
 
-        # Count total lines
-        with open(path, "r") as f:
-            total = sum(1 for _ in f)
         print(f"\n  (showing {min(args.limit, total)} of {total} total examples)\n")
 
 
